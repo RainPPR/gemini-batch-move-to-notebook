@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Gemini 对话批量移动到笔记本 (Batch Move to Notebook)
-// @namespace    http://tampermonkey.net/
-// @version      1.1
-// @description  开启高级编辑模式后，可用 Shift/Ctrl 快速多选 Gemini 对话，并一键批量移动到指定笔记本，无视 TrustedHTML 限制。
-// @author       You
+// @namespace    https://github.com/rainppr/gemini-batch-move-to-notebook
+// @version      1.2
+// @description  开启高级编辑模式后，可用 Shift/Ctrl 快速多选 Gemini 对话，并一键批量移动到指定笔记本。采用非阻塞式浮动提示框，无视 TrustedHTML 限制。
+// @author       RainPPR
 // @match        *://gemini.google.com/*
+// @updateURL    https://raw.githubusercontent.com/rainppr/gemini-batch-move-to-notebook/main/gemini-batch-move-to-notebook.user.js
+// @downloadURL  https://raw.githubusercontent.com/rainppr/gemini-batch-move-to-notebook/main/gemini-batch-move-to-notebook.user.js
 // @grant        none
 // ==/UserScript==
 
@@ -85,10 +87,71 @@
                 color: #e8eaed;
                 font-weight: 500;
             }
+            #gemini-toast-container {
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 999999;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                pointer-events: none;
+            }
+            .gemini-toast-item {
+                background-color: var(--gem-sys-color--surface-container-high, #28292a);
+                color: var(--gem-sys-color--on-surface, #e3e2e6);
+                border: 1px solid var(--gem-sys-color--outline-variant, #444746);
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+                padding: 12px 18px;
+                border-radius: 12px;
+                font-size: 14px;
+                font-weight: 500;
+                font-family: Google Sans, Roboto, sans-serif;
+                pointer-events: auto;
+                opacity: 0;
+                transform: translateY(-10px);
+                transition: opacity 0.3s ease, transform 0.3s ease;
+                display: flex;
+                align-items: center;
+                max-width: 380px;
+                line-height: 1.4;
+            }
+            .gemini-toast-item.show {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            .gemini-toast-item.hide {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
         `;
         const styleEl = createElement('style', { id: 'gemini-bulk-styles' });
         styleEl.appendChild(document.createTextNode(styleText));
         document.head.appendChild(styleEl);
+    }
+
+    // 显示 Gemini 风格顶部非阻塞 Toast 提示
+    function showToast(message, duration = 3500) {
+        let container = document.getElementById('gemini-toast-container');
+        if (!container) {
+            container = createElement('div', { id: 'gemini-toast-container' });
+            document.body.appendChild(container);
+        }
+
+        const toast = createElement('div', { class: 'gemini-toast-item' }, {}, message);
+        container.appendChild(toast);
+
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, duration);
     }
 
     // 2. 初始化工具栏
@@ -120,7 +183,7 @@
 
         moveBtn.onclick = async () => {
             if (selectedItems.size === 0) {
-                alert('请先在下方列表中点选对话！');
+                showToast('⚠️ 请先在下方列表中点选对话！');
                 return;
             }
             await executeBatchMove();
@@ -248,7 +311,9 @@
             const options = Array.from(dialog.querySelectorAll('mat-list-option'));
 
             if (i === 0) {
-                updateStatusText('👉 请在弹出的列表中，点击你要移动到的笔记本！');
+                const promptMsg = '👉 请在弹出的列表中，点击你要移动到的笔记本！';
+                updateStatusText(promptMsg);
+                showToast(promptMsg, 5000);
 
                 // 【关键增强】：捕捉你选中的笔记本，加入定时器探测弹窗被强制关闭的情况
                 targetNotebookName = await new Promise(resolve => {
@@ -279,7 +344,7 @@
                 });
 
                 if (!targetNotebookName) {
-                    alert('批量移动已取消。');
+                    showToast('ℹ️ 批量移动已取消。');
                     break;
                 }
 
@@ -307,7 +372,7 @@
         }
 
         isProcessing = false;
-        alert('🎉 批量移动完成！');
+        showToast('🎉 批量移动完成！', 4000);
         clearSelection();
         if (advancedMode) {
             document.querySelector('#gemini-bulk-toolbar .gemini-bulk-btn').click();
