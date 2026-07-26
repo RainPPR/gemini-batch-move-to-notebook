@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gemini 对话批量移动到笔记本 (Batch Move to Notebook)
 // @namespace    https://github.com/rainppr/gemini-batch-move-to-notebook
-// @version      1.2
+// @version      1.3
 // @description  开启高级编辑模式后，可用 Shift/Ctrl 快速多选 Gemini 对话，并一键批量移动到指定笔记本。采用非阻塞式浮动提示框，无视 TrustedHTML 限制。
 // @author       RainPPR
 // @match        *://gemini.google.com/*
@@ -347,6 +347,8 @@
                     showToast('ℹ️ 批量移动已取消。');
                     break;
                 }
+
+                showToast(`📓 将移动 ${itemsToProcess.length} 个对话到「${targetNotebookName}」`, 4000);
 
                 while (document.querySelector('mat-dialog-container')) {
                     await sleep(200);
